@@ -1,7 +1,7 @@
 # PowerShell script for initial SSL certificate setup with Let's Encrypt
 # Run this ONCE before starting docker-compose
 
-$DOMAIN = "travel-social-network.duckdns.org"
+$DOMAIN = "travel-go.duckdns.org"
 $EMAIL = "your-email@example.com"  # Change this to your email
 
 # Create directories
@@ -12,7 +12,7 @@ New-Item -ItemType Directory -Force -Path ".\certbot\www"
 $tempConfig = @"
 server {
     listen 80;
-    server_name travel-social-network.duckdns.org;
+    server_name travel-go.duckdns.org;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
