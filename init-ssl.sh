@@ -41,6 +41,7 @@ docker run --rm \
     --email $EMAIL \
     --agree-tos \
     --no-eff-email \
+    --non-interactive \
     -d $DOMAIN
 
 echo "Certificate generated! Now update nginx config and restart."

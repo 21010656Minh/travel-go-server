@@ -42,6 +42,7 @@ docker run --rm `
     --email $EMAIL `
     --agree-tos `
     --no-eff-email `
+    --non-interactive `
     -d $DOMAIN
 
 Write-Host "Certificate generated! Now run the full docker-compose." -ForegroundColor Green
