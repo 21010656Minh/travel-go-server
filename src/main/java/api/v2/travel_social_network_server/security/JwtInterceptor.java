@@ -50,27 +50,29 @@ public class JwtInterceptor implements ChannelInterceptor {
             try {
                 String username = jwtTokenProvider.extractEmail(jwtToken);
 
-                if (username != null && jwtTokenProvider.validateToken(jwtToken) && SecurityContextHolder.getContext().getAuthentication() == null) {
+                if (username != null && jwtTokenProvider.validateToken(jwtToken)) {
                     User userDetails = (User) userDetailsService.loadUserByUsername(username);
 
-                    UsernamePasswordAuthenticationToken authenticationToken =
-                            new UsernamePasswordAuthenticationToken(
-                                    userDetails,
-                                    null,
-                                    userDetails.getAuthorities()
-                            );
-
-                    authenticationToken.setDetails(userDetails);
-                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-
-                    if (accessor.getSessionAttributes() != null) {
-                        accessor.getSessionAttributes().put("simpUser", authenticationToken.getPrincipal());
-                        accessor.getSessionAttributes().put("userId", userDetails.getUserId());
+                    // Always set authentication in security context if not already set
+                    if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                        UsernamePasswordAuthenticationToken authenticationToken =
+                                new UsernamePasswordAuthenticationToken(
+                                        userDetails,
+                                        null,
+                                        userDetails.getAuthorities()
+                                );
+                        authenticationToken.setDetails(userDetails);
+                        SecurityContextHolder.getContext().setAuthentication(authenticationToken);
                     }
 
-                    log.info("✅ User authenticated via WebSocket: {} (userId: {})", username, userDetails.getUserId());
+                    // ALWAYS set simpUser in session attributes for WebSocket
+                    if (accessor.getSessionAttributes() != null) {
+                        accessor.getSessionAttributes().put("simpUser", userDetails);
+                        accessor.getSessionAttributes().put("userId", userDetails.getUserId());
+                        log.info("✅ User authenticated via WebSocket: {} (userId: {})", username, userDetails.getUserId());
+                    }
                 } else {
-                    log.warn("⚠️ Token validation failed or user already authenticated");
+                    log.warn("⚠️ Token validation failed for user: {}", username);
                 }
             } catch (Exception e) {
                 log.error("❌ Error validating token in JwtInterceptor: {}", e.getMessage(), e);
