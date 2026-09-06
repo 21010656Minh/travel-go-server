@@ -21,7 +21,8 @@ public class JwtInterceptor implements ChannelInterceptor {
     private final UserDetailsService userDetailsService;
 
     @Override
-    public Message<?> preSend(Message<?> message, MessageChannel channel) {        SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.wrap(message);
+    public Message<?> preSend(Message<?> message, MessageChannel channel) {
+        SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.wrap(message);
         String jwtToken = null;
 
         // Try to get token from Authorization header first
@@ -33,32 +34,49 @@ public class JwtInterceptor implements ChannelInterceptor {
         else if (accessor.getSessionAttributes() != null) {
             Object tokenObj = accessor.getSessionAttributes().get("token");
             if (tokenObj instanceof String) {
-                jwtToken = (String) tokenObj;            }
+                jwtToken = (String) tokenObj;
+            }
+            
+            // Double-fallback: check if token is in query parameter
+            if (jwtToken == null) {
+                Object queryToken = accessor.getSessionAttributes().get("token");
+                if (queryToken instanceof String) {
+                    jwtToken = (String) queryToken;
+                }
+            }
         }
 
-        if (jwtToken != null) {
-            String username = jwtTokenProvider.extractEmail(jwtToken);
+        if (jwtToken != null && !jwtToken.isEmpty()) {
+            try {
+                String username = jwtTokenProvider.extractEmail(jwtToken);
 
-            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                User userDetails = (User) userDetailsService.loadUserByUsername(username);
+                if (username != null && jwtTokenProvider.validateToken(jwtToken) && SecurityContextHolder.getContext().getAuthentication() == null) {
+                    User userDetails = (User) userDetailsService.loadUserByUsername(username);
 
-                UsernamePasswordAuthenticationToken authenticationToken =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                userDetails.getAuthorities()
-                        );
+                    UsernamePasswordAuthenticationToken authenticationToken =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities()
+                            );
 
-                authenticationToken.setDetails(userDetails);
-                SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                    authenticationToken.setDetails(userDetails);
+                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
 
-                accessor.getSessionAttributes().put("simpUser", authenticationToken.getPrincipal());
-                accessor.getSessionAttributes().put("userId", userDetails.getUserId());
+                    if (accessor.getSessionAttributes() != null) {
+                        accessor.getSessionAttributes().put("simpUser", authenticationToken.getPrincipal());
+                        accessor.getSessionAttributes().put("userId", userDetails.getUserId());
+                    }
 
-                log.info("✅ User authenticated via WebSocket: {} (userId: {})", username, userDetails.getUserId());
+                    log.info("✅ User authenticated via WebSocket: {} (userId: {})", username, userDetails.getUserId());
+                } else {
+                    log.warn("⚠️ Token validation failed or user already authenticated");
+                }
+            } catch (Exception e) {
+                log.error("❌ Error validating token in JwtInterceptor: {}", e.getMessage(), e);
             }
         } else {
-            log.warn("⚠️ No token found in WebSocket message (header or session)");
+            log.warn("⚠️ No valid token found in WebSocket message (header, session, or query)");
         }
 
         return message;

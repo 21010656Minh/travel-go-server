@@ -42,6 +42,11 @@ public class MessageController {
                         SimpMessageHeaderAccessor headerAccessor,
                         @Payload SendMessageRequest request) {
                 User sender = (User) Objects.requireNonNull(headerAccessor.getSessionAttributes()).get("simpUser");
+                
+                if (sender == null) {
+                        log.error("❌ WebSocket authentication failed: sender is null in handlePrivateMessage");
+                        throw new IllegalStateException("User not authenticated for WebSocket");
+                }
 
                 // Get sender info from userProfile
                 String senderName = sender.getUserProfile() != null && sender.getUserProfile().getFullName() != null
@@ -102,6 +107,11 @@ public class MessageController {
                         SimpMessageHeaderAccessor headerAccessor,
                         @Payload SendMessageRequest request) {
                 User sender = (User) Objects.requireNonNull(headerAccessor.getSessionAttributes()).get("simpUser");
+                
+                if (sender == null) {
+                        log.error("❌ WebSocket authentication failed: sender is null in handleGroupMessage");
+                        throw new IllegalStateException("User not authenticated for WebSocket");
+                }
 
                 if (request.getContent() == null || request.getContent().trim().isEmpty()) {
                         throw new IllegalArgumentException("Message content is required");
@@ -170,6 +180,11 @@ public class MessageController {
                         SimpMessageHeaderAccessor headerAccessor,
                         @Payload TypingNotificationDto typingNotification) {
                 User sender = (User) Objects.requireNonNull(headerAccessor.getSessionAttributes()).get("simpUser");
+                
+                if (sender == null) {
+                        log.error("❌ WebSocket authentication failed: sender is null in handleTyping");
+                        return; // Silently ignore
+                }
 
                 TypingNotificationDto notification = TypingNotificationDto.builder()
                                 .userId(sender.getUserId())
@@ -187,6 +202,11 @@ public class MessageController {
                         SimpMessageHeaderAccessor headerAccessor,
                         @Payload MessageDeliveryRequestDto request) {
                 User user = (User) Objects.requireNonNull(headerAccessor.getSessionAttributes()).get("simpUser");
+                
+                if (user == null) {
+                        log.error("❌ WebSocket authentication failed: user is null in handleMessageDelivered");
+                        return; // Silently ignore
+                }
 
                 try {
                         messageMongoService.markMessageAsRead(request.getMessageId());
